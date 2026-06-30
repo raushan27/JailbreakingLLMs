@@ -16,7 +16,7 @@ class Model(Enum):
     gpt_4 = "gpt-4-0125-preview"
     claude_1 = "claude-instant-1.2"
     claude_2 = "claude-2.1"
-    gemini = "gemini-pro"
+    gemini = "gemini-2.5-flash-lite"  
     mixtral = "mixtral"
 
 MODEL_NAMES = [model.value for model in Model]
@@ -55,6 +55,37 @@ API_KEY_NAMES: dict[Model, str] = {
     Model.llama_2:  "TOGETHER_API_KEY",
     Model.mixtral:  "TOGETHER_API_KEY",
 }
+
+## CUSTOM OPENAI-COMPATIBLE PROVIDERS (DaiSec, KISSKI) ##
+DAISEC_BASE_URL = "https://chat.daisec.eu/ollama/v1"
+DAISEC_API_KEY_ENV = "DAISEC_APIKEY"
+DAISEC_MODELS = [
+    "qwen3:30b", "llama4:scout", "deepseek-r1:32b", "gpt-oss:20b",
+    "llama3:70b", "gemma3:27b", "openthinker:32b", "qwen3-next:80b",
+]
+
+KISSKI_BASE_URL = "https://chat-ai.academiccloud.de/v1/"
+KISSKI_API_KEY_ENV = "KISSKI_APIKEY"
+KISSKI_MODELS = [
+    "qwen3-coder-30b-a3b-instruct", "glm-4.7", "qwen3.6-35b-a3b",
+    "apertus-70b-instruct-2509", "qwen3-omni-30b-a3b-instruct",
+    "devstral-2-123b-instruct-2512", "internvl3.5-30b-a3b", "qwen3.5-122b-a10b",
+    "qwen3.5-397b-a17b", "gemma-4-31b-it", "mistral-large-3-675b-instruct-2512",
+    "meta-llama-3.1-8b-instruct", "openai-gpt-oss-120b",
+    "qwen3-30b-a3b-instruct-2507", "medgemma-27b-it",
+    "deepseek-r1-distill-llama-70b", "teuken-7b-instruct-research",
+]
+
+CUSTOM_PROVIDER_MODELS: dict[str, dict] = {}
+for _m in DAISEC_MODELS:
+    CUSTOM_PROVIDER_MODELS[_m] = {"api_base": DAISEC_BASE_URL, "api_key_env": DAISEC_API_KEY_ENV}
+for _m in KISSKI_MODELS:
+    CUSTOM_PROVIDER_MODELS[_m] = {"api_base": KISSKI_BASE_URL, "api_key_env": KISSKI_API_KEY_ENV}
+
+
+def is_custom_provider_model(model_name: str) -> bool:
+    return model_name in CUSTOM_PROVIDER_MODELS
+
 
 LITELLM_TEMPLATES: dict[Model, dict] = {
     Model.vicuna: {"roles":{

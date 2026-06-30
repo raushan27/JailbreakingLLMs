@@ -3,6 +3,7 @@ from loggers import WandBLogger, logger
 from judges import load_judge
 from conversers import load_attack_and_target_models
 from common import process_target_response, initialize_conversations
+from config import DAISEC_MODELS, KISSKI_MODELS
 import psutil
 import os
 import time
@@ -82,8 +83,8 @@ if __name__ == '__main__':
         "--attack-model",
         default = "vicuna-13b-v1.5",
         help = "Name of attacking model.",
-        choices=["vicuna-13b-v1.5", "llama-2-7b-chat-hf", "gpt-3.5-turbo-1106", "gpt-4-0125-preview", "claude-instant-1.2", "claude-2.1", "gemini-pro", 
-        "mixtral","vicuna-7b-v1.5"]
+        choices=["vicuna-13b-v1.5", "llama-2-7b-chat-hf", "gpt-3.5-turbo-1106", "gpt-4-0125-preview", "claude-instant-1.2", "claude-2.1", "gemini-2.5-flash-lite",
+        "mixtral","vicuna-7b-v1.5"] + DAISEC_MODELS + KISSKI_MODELS
     )
     parser.add_argument(
         "--attack-max-n-tokens",
@@ -104,7 +105,7 @@ if __name__ == '__main__':
         "--target-model",
         default = "vicuna-13b-v1.5", #TODO changed
         help = "Name of target model.",
-        choices=["vicuna-13b-v1.5", "llama-2-7b-chat-hf", "gpt-3.5-turbo-1106", "gpt-4-0125-preview", "claude-instant-1.2", "claude-2.1", "gemini-pro",]
+        choices=["vicuna-13b-v1.5", "llama-2-7b-chat-hf", "gpt-3.5-turbo-1106", "gpt-4-0125-preview", "claude-instant-1.2", "claude-2.1", "gemini-2.5-flash-lite"] + DAISEC_MODELS + KISSKI_MODELS
     )
     parser.add_argument(
         "--target-max-n-tokens",

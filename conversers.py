@@ -1,6 +1,14 @@
 from common import get_api_key, conv_template, extract_json
 from language_models import APILiteLLM
-from config import FASTCHAT_TEMPLATE_NAMES, Model
+from config import FASTCHAT_TEMPLATE_NAMES, Model, is_custom_provider_model
+
+CUSTOM_PROVIDER_TEMPLATE = "chatgpt"  # generic OpenAI-style fastchat template for DaiSec/KISSKI (OpenAI-compatible chat models)
+
+
+def get_template_name(model_name):
+    if is_custom_provider_model(model_name):
+        return CUSTOM_PROVIDER_TEMPLATE
+    return FASTCHAT_TEMPLATE_NAMES[Model(model_name)]
 
 
 def load_attack_and_target_models(args):
@@ -16,13 +24,16 @@ def load_attack_and_target_models(args):
                         category = args.category,
                         max_n_tokens = args.target_max_n_tokens,
                         evaluate_locally = args.evaluate_locally,
-                        phase = args.jailbreakbench_phase
+                        phase = args.jailbreakbench_phase,
+                        use_jailbreakbench = args.use_jailbreakbench
                         )
     
     return attackLM, targetLM
 
 def load_indiv_model(model_name, local = False, use_jailbreakbench=True):
-    if use_jailbreakbench: 
+    if use_jailbreakbench:
+        if is_custom_provider_model(model_name):
+            raise ValueError(f"{model_name} is a custom-provider (DaiSec/KISSKI) model and isn't on JailbreakBench. Pass --not-jailbreakbench.")
         if local:
             from jailbreakbench import LLMvLLM
             lm = LLMvLLM(model_name=model_name)
@@ -50,7 +61,7 @@ class AttackLM():
                 category: str,
                 evaluate_locally: bool):
         
-        self.model_name = Model(model_name)
+        self.model_name = model_name if is_custom_provider_model(model_name) else Model(model_name)
         self.max_n_tokens = max_n_tokens
         self.max_n_attack_attempts = max_n_attack_attempts
 
@@ -65,7 +76,7 @@ class AttackLM():
                                       use_jailbreakbench=False # Cannot use JBB as attacker
                                       )
         self.initialize_output = self.model.use_open_source_model
-        self.template = FASTCHAT_TEMPLATE_NAMES[self.model_name]
+        self.template = get_template_name(model_name)
 
     def preprocess_conversation(self, convs_list: list, prompts_list: list[str]):
         # For open source models, we can seed the generation with proper JSON
@@ -177,6 +188,7 @@ class TargetLM():
 
         self.model = load_indiv_model(model_name, evaluate_locally, use_jailbreakbench)            
         self.category = category
+        self.template = get_template_name(model_name)
 
     def get_response(self, prompts_list):
         if self.use_jailbreakbench:

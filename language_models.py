@@ -1,6 +1,6 @@
 import os 
 import litellm
-from config import TOGETHER_MODEL_NAMES, LITELLM_TEMPLATES, API_KEY_NAMES, Model
+from config import TOGETHER_MODEL_NAMES, LITELLM_TEMPLATES, API_KEY_NAMES, Model, is_custom_provider_model, CUSTOM_PROVIDER_MODELS
 from loggers import logger
 from common import get_api_key
 
@@ -22,16 +22,32 @@ class APILiteLLM(LanguageModel):
     API_TIMEOUT = 20
 
     def __init__(self, model_name):
-        super().__init__(model_name)
-        self.api_key = get_api_key(self.model_name)
-        self.litellm_model_name = self.get_litellm_model_name(self.model_name)
-        litellm.drop_params=True
-        self.set_eos_tokens(self.model_name)
-        
+        self.api_base = None  #for custom OpenAI-compatible providers (DaiSec/KISSKI)
+        self.is_custom_provider = is_custom_provider_model(model_name)
+        if self.is_custom_provider:
+            # DaiSec/KISSKI: self-hosted gateways litellm doesn't know by name,
+            # so bypass the Model enum and route via "openai/<model>" + explicit api_base.
+            self.model_name = model_name
+            cfg = CUSTOM_PROVIDER_MODELS[model_name]
+            self.api_base = cfg["api_base"]
+            self.api_key = os.environ[cfg["api_key_env"]]
+            self.litellm_model_name = "openai/" + model_name
+            self.use_open_source_model = False
+            self.eos_tokens = []
+        else:
+            super().__init__(model_name)
+            self.api_key = get_api_key(self.model_name)
+            self.litellm_model_name = self.get_litellm_model_name(self.model_name)
+            self.set_eos_tokens(self.model_name)
+        litellm.drop_params = True
+
     def get_litellm_model_name(self, model_name):
         if model_name in TOGETHER_MODEL_NAMES:
             litellm_name = TOGETHER_MODEL_NAMES[model_name]
             self.use_open_source_model = True
+        elif model_name == Model.gemini:
+            self.use_open_source_model = False
+            litellm_name = "gemini/" + model_name.value
         else:
             self.use_open_source_model =  False
             #if self.use_open_source_model:
@@ -68,24 +84,30 @@ class APILiteLLM(LanguageModel):
         
         eos_tokens = self.eos_tokens 
 
-        if extra_eos_tokens:
+        if extra_eos_tokens and not self.is_custom_provider:
             eos_tokens.extend(extra_eos_tokens)
         if self.use_open_source_model:
             self._update_prompt_template()
         
-        outputs = litellm.batch_completion(
-            model=self.litellm_model_name, 
+        kwargs = dict(
+            model=self.litellm_model_name,
             messages=convs_list,
             api_key=self.api_key,
+            api_base=self.api_base,
             temperature=temperature,
             top_p=top_p,
             max_tokens=max_n_tokens,
             num_retries=self.API_MAX_RETRY,
-            seed=0,
-            stop=eos_tokens,
+            drop_params=True,
         )
+        if not self.is_custom_provider:
+            kwargs["seed"] = 0
+        if eos_tokens:
+            kwargs["stop"] = eos_tokens
+
+        outputs = litellm.batch_completion(**kwargs)
         
-        responses = [output["choices"][0]["message"].content for output in outputs]
+        responses = [output["choices"][0]["message"].content or "" for output in outputs]
 
         return responses
 
